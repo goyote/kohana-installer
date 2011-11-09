@@ -24,6 +24,7 @@ Open a shell and specify a command to run:
     $ ko install --mode=755                       <- Uses mode "755" instead of "777" for new files/dirs
 
 *Note*: When using --path, if a dir does not exist, it will be created.
+
 *Note*: When using --path, the permissions on existing dirs will not get overridden (by design.)
 
 ***
