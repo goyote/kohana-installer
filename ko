@@ -1,0 +1,606 @@
+#!/usr/bin/env php
+<?php
+/**
+ * The Kohana installer class.
+ *
+ * This cli script helps you automate the steps needed to install kohana manually, or through the command
+ * line. It also contains helpers to install modules, system dirs, apps, and skeletons separately.
+ *
+ * @author     Gregorio Ramirez <goyocode@gmail.com>
+ * @copyright  (c) 2011 Gregorio Ramirez
+ * @link       https://github.com/goyote/kohana-installer
+ * @license    http://kohanaframework.org/license
+ */
+class Kohana_Installer
+{
+	const KOHANA_WEBSITE = 'http://kohanaframework.org';
+
+	/**
+	 * Raw CLI arguments and options.
+	 *
+	 * @var  array
+	 */
+	protected $argv = array();
+
+	/**
+	 * Parsed CLI options.
+	 *
+	 * @var  array
+	 */
+	protected $options = array();
+
+	/**
+	 * Officially supported Kohana modules.
+	 *
+	 * @var  array
+	 */
+	protected $modules = array(
+		'database'  => 'git://github.com/kohana/database.git',
+		'userguide' => 'git://github.com/kohana/userguide.git',
+		'image'     => 'git://github.com/kohana/image.git',
+		'cache'     => 'git://github.com/kohana/cache.git',
+		'codebench' => 'git://github.com/kohana/codebench.git',
+		'auth'      => 'git://github.com/kohana/auth.git',
+		'unittest'  => 'git://github.com/kohana/unittest.git',
+		'orm'       => 'git://github.com/kohana/orm.git',
+	);
+
+	/**
+	 * Class constructor.
+	 *
+	 * @param  array  $argv
+	 */
+	public function __construct(array $argv)
+	{
+		$this->argv = $argv;
+		$this->parse_options();
+		$this->root_dir = trim(shell_exec('pwd'));
+	}
+
+	/**
+	 * Parses and stores all the valid options from the raw $argv array.
+	 */
+	public function parse_options()
+	{
+		foreach ($this->argv as $option)
+		{
+			if (substr($option, 0, 2) !== '--')
+			{
+				continue;
+			}
+
+			$option = ltrim($option, '--');
+
+			if (strpos($option, '=') !== FALSE)
+			{
+				list($option, $value) = explode('=', $option);
+			}
+			else
+			{
+				$value = TRUE;
+			}
+
+			$this->options[strtolower($option)] = $value;
+		}
+	}
+
+	/**
+	 * Retrieves the value of a passed in CLI option.
+	 *
+	 * e.g. If --name=value was passed in it returns "value".
+	 *
+	 * @param   string  $name
+	 * @param   string  $default
+	 * @return  string
+	 */
+	public function get_option($name, $default = NULL)
+	{
+		if ($this->has_option($name))
+		{
+			return $this->options[strtolower($name)];
+		}
+
+		return $default;
+	}
+
+	/**
+	 * Checks to see if a option was passed in.
+	 *
+	 * Both --name and --name=value are valid formats, and will return true.
+	 *
+	 * @param   string  $name
+	 * @return  boolean
+	 */
+	public function has_option($name)
+	{
+		return array_key_exists(strtolower($name), $this->options);
+	}
+
+	/**
+	 * Exits the script if no internet access is detected.
+	 */
+	public function check_internet_access()
+	{
+		if ( ! $this->has_internet_access())
+		{
+			exit("Error: You don't have internet access\n\n");
+		}
+	}
+
+	/**
+	 * Checks if the server has internet access.
+	 *
+	 * @return  boolean
+	 */
+	public function has_internet_access()
+	{
+		return (boolean) @fsockopen("www.google.com", 80, $errno, $errstr, 1);
+	}
+
+	/**
+	 * An enhanced file_get_contents that default to curl if fopen is disabled.
+	 *
+	 * Useful for fetching HTML from the web.
+	 *
+	 * @param   string  $url
+	 * @return  string
+	 */
+	public function get_file_contents($url)
+	{
+		// fopen is disabled by default
+		ini_set('allow_url_fopen', 1);
+		$data = @file_get_contents($url);
+
+		if ( ! $data)
+		{
+			$ch = curl_init($url);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+			$data = curl_exec($ch);
+		}
+
+		return $data;
+	}
+
+	/**
+	 * Installs Kohana from GitHub. Initializes git project and installs modules as submodules.
+	 *
+	 * @link  http://kohanaframework.org/3.2/guide/kohana/tutorials/git
+	 */
+	public function execute_git()
+	{
+		$name = $this->get_option('name', 'kohana');
+		$mode = $this->get_option('mode');
+		$tag  = ltrim($this->get_option('tag', '3.2'), 'v');
+		$dir  = $this->build_path_dir($this->get_option('path'), $mode);
+
+		$this->mkdir($dir.'/'.$name, $mode);
+		chdir($dir.'/'.$name);
+
+		system('git init && git config core.filemode false');
+
+		system('mkdir -p application/classes/{controller,model}');
+		system('mkdir -p application/{config,views}');
+		system('mkdir -p application/{cache,logs}');
+
+		file_put_contents('application/logs/.gitignore', '[^.]*', LOCK_EX);
+		file_put_contents('application/cache/.gitignore', '[^.]*', LOCK_EX);
+
+		system(sprintf('curl -o .htaccess https://raw.github.com/kohana/kohana/%s/master/example.htaccess', escapeshellarg($tag)));
+		system(sprintf('curl -o index.php https://raw.github.com/kohana/kohana/%s/master/index.php', escapeshellarg($tag)));
+		system(sprintf('curl -o application/bootstrap.php https://raw.github.com/kohana/kohana/%s/master/application/bootstrap.php', escapeshellarg($tag)));
+
+		system('git add .htaccess');
+		system('git add index.php');
+		system('git add application');
+
+		system('git commit -m "Added initial directory structure"');
+
+		system('git submodule add git://github.com/kohana/core.git system');
+		system('cd system && git config core.filemode false');
+
+		$modules = $this->get_modules();
+		foreach ($modules as $module => $url)
+		{
+			system(sprintf('git submodule add %s modules/%s', escapeshellarg($url), escapeshellarg($module)));
+			system(sprintf('cd modules/%s && git config core.filemode false', escapeshellarg($module)));
+		}
+
+		$this->fix_permissions($dir.'/'.$name, $mode);
+		system('git submodule init');
+		system('git commit -m "Added initial submodules"');
+	}
+
+	/**
+	 * Downloads the framework from the official website and extracts the zip to the localhost.
+	 */
+	public function execute_install()
+	{
+		$mode = $this->get_option('mode');
+
+		$website      = self::KOHANA_WEBSITE;
+		$zip_file_url = FALSE;
+
+		$dom_document = new DOMDocument;
+		@$dom_document->loadHTML($this->get_file_contents($website));
+
+		$nodes = $dom_document->getElementsByTagName('a');
+		foreach ($nodes as $node)
+		{
+			$href = $node->getAttribute('href');
+			if (pathinfo($href, PATHINFO_EXTENSION) === 'zip' AND strpos($href, 'download') !== FALSE)
+			{
+				$zip_file_url = $href;
+				break;
+			}
+		}
+
+		if ( ! $zip_file_url)
+		{
+			exit("Error: Could not locate the URL to the latest zip file on the official Kohana website ($website)\n\n");
+		}
+
+		$zip_file_name = pathinfo($zip_file_url, PATHINFO_BASENAME);
+		system(sprintf('wget %s %s', escapeshellarg($zip_file_url), escapeshellarg($this->root_dir.'/'.$zip_file_name)));
+		system(sprintf('unzip %s -d %s', escapeshellarg($this->root_dir.'/'.$zip_file_name), escapeshellarg($this->root_dir.'/temp_dir')));
+
+		$dir             = $this->build_path_dir($this->get_option('path'), $mode);
+		$target_dir_name = $dir.'/'.$this->get_option('name', 'kohana');
+		$dir_name        = trim(shell_exec(sprintf('ls %s/temp_dir', $this->root_dir)));
+
+		system(sprintf('mv %s/temp_dir/%s %s', $this->root_dir, $dir_name, $target_dir_name));
+		$this->fix_permissions($target_dir_name, $mode);
+
+		system(sprintf('rm -f %s', escapeshellarg($this->root_dir.'/'.$zip_file_name)));
+		system(sprintf('rmdir %s/temp_dir', escapeshellarg($this->root_dir)));
+	}
+
+	/**
+	 * Fixes some shitty defaults.
+	 */
+	public function execute_fix()
+	{
+		if ($path = $this->get_option('path'))
+		{
+			$path = trim($path, '/').'/';
+		}
+
+		if ( ! file_exists($this->root_dir.'/'.$path.'/index.php'))
+		{
+			exit("Error: No index.php file found\n\n");
+		}
+
+		chdir($this->root_dir.'/'.$path);
+
+		$this->fix_permissions('application/cache', '0777');
+		$this->fix_permissions('application/logs', '0777');
+
+		system('mv example.htaccess .htaccess');
+		unlink('install.php');
+	}
+
+	/**
+	 * Creates a skeleton of dirs that allows kohana to be shared easily among projects.
+	 *
+	 * @link  http://kohanaframework.org/3.2/guide/kohana/tutorials/sharing-kohana
+	 */
+	public function execute_skeleton()
+	{
+		$name = $this->get_option('name', 'projects');
+		$mode = $this->get_option('mode');
+		$dir  = $this->build_path_dir($this->get_option('path'), $mode);
+
+		foreach (array($name, 'kohana', 'modules') as $dir_name)
+		{
+			$this->mkdir($dir.'/'.$dir_name, $mode);
+		}
+	}
+
+	/**
+	 * Downloads the "system" directory from GitHub; optionally checks out a tag.
+	 */
+	public function execute_system()
+	{
+		$name = $this->get_option('name', 'system');
+		$tag  = $this->get_option('tag');
+		$mode = $this->get_option('mode');
+
+		if ($tag AND $name === 'system')
+		{
+			$name = ltrim($tag, 'v');
+		}
+
+		$dir = $this->build_path_dir($this->get_option('path'), $mode).'/'.$name;
+		$this->checkout_module('git://github.com/kohana/core.git', $dir, $mode, $tag);
+	}
+
+	/**
+	 * Gets the list of modules to install, optionally filtered with --module flag.
+	 *
+	 * @return  array
+	 */
+	public function get_modules()
+	{
+		$modules = array();
+		if ($module = $this->get_option('modules', $this->get_option('module')))
+		{
+			$list = explode(',', strtolower($module));
+			foreach ($list as $module)
+			{
+				if (isset($this->modules[$module]))
+				{
+					$modules[$module] = $this->modules[$module];
+				}
+			}
+		}
+		else
+		{
+			$modules = $this->modules;
+		}
+
+		return $modules;
+	}
+
+	/**
+	 * Retrieves the all the official modules GitHub. Optionally only one at a time.
+	 */
+	public function execute_modules()
+	{
+		$modules = $this->get_modules();
+		$mode    = $this->get_option('mode');
+		$dir     = $this->build_path_dir($this->get_option('path'), $mode);
+		$tag     = $this->get_option('tag');
+
+		foreach ($modules as $module => $url)
+		{
+			$this->checkout_module($url, $dir.'/'.$module, $mode, $tag);
+		}
+	}
+
+	public function execute_module()
+	{
+		$this->execute_modules();
+	}
+
+	/**
+	 * Shows the list of available commands.
+	 */
+	public function execute_help()
+	{
+		if ($this->has_option('verbose'))
+		{
+			$this->show_verbose_help_screen();
+		}
+		else
+		{
+			$this->show_help_screen();
+		}
+	}
+
+	/**
+	 * Checks out a Kohana modules from GitHub; optionally checks out a tag.
+	 *
+	 * @param  string  $url
+	 * @param  string  $dir
+	 * @param  string  $mode
+	 * @param  string  $tag
+	 */
+	protected function checkout_module($url, $dir, $mode = NULL, $tag = NULL)
+	{
+		system(sprintf('git clone %s %s', escapeshellarg($url), escapeshellarg($dir)));
+		$this->fix_permissions($dir, $mode);
+
+		if ($tag)
+		{
+			system(sprintf('cd %s && git config core.filemode false && git checkout %s', escapeshellarg($dir), escapeshellarg($tag)));
+		}
+	}
+
+	/**
+	 * Creates a directory or series of directories.
+	 *
+	 * Any directory that currently doesn't exist will be created. Upon completion it will fix the
+	 * permissions so that it's writable by everyone (appropriate for development,) the mode can
+	 * be overridden.
+	 *
+	 * @param  string  $dir
+	 * @param  string  $mode
+	 */
+	public function mkdir($dir, $mode = NULL)
+	{
+		system(sprintf('mkdir -p %s', escapeshellarg($dir)));
+		$this->fix_permissions($dir, $mode);
+	}
+
+	/**
+	 * Changes the permissions of a directory.
+	 *
+	 * Note: this function is recursive, so all of the folders and files underneath the target
+	 * directory will also receive the same permissions. The default behaviour is to 777 the whole
+	 * thing, makes it easier to develop locally.
+	 *
+	 * @param  string  $dir
+	 * @param  string  $mode
+	 */
+	public function fix_permissions($dir, $mode = NULL)
+	{
+		if ( ! $mode)
+		{
+			// Default the mode to rxw by everyone
+			$mode = '0777';
+		}
+
+		system(sprintf('chmod -R %s %s', escapeshellarg($mode), escapeshellarg($dir)));
+	}
+
+	/**
+	 * Builds the desired path directory structure, fixing the permissions on all new directories.
+	 *
+	 * @param   string  $dir
+	 * @param   string  $mode
+	 * @return  string
+	 */
+	public function build_path_dir($dir = NULL, $mode = NULL)
+	{
+		$dir = trim($dir, '/');
+		if ( ! $dir)
+		{
+			return $this->root_dir;
+		}
+
+		$dirs = explode('/', $dir);
+
+		do
+		{
+			$folder = array_shift($dirs);
+			$folder = substr($dir, 0, strpos($dir, $folder) + strlen($folder));
+
+			if ( ! is_dir($this->root_dir.'/'.$folder))
+			{
+				$this->mkdir($this->root_dir.'/'.$dir, $mode);
+				$this->fix_permissions($this->root_dir.'/'.$folder, $mode);
+				break;
+			}
+		}
+		while (count($dirs));
+
+		return $this->root_dir.'/'.$dir;
+	}
+
+	/**
+	 * Displays the full help screen; contains the list of available commands.
+	 */
+	public function show_verbose_help_screen()
+	{
+		exit($this->colorize_output(<<<EOF
+*********************************************
+* Kohana Framework Installer (ko installer) *
+*********************************************
+
+** Specify a command to run **
+
+> install:    Installs Kohana by downloading the latest zip file from the official website
+
+~$ ko install~                                  <- Downloads Kohana to "./kohana"
+~$ ko install --name=myapp~                     <- Downloads Kohana to "./myapp"
+~$ ko install --path=my/other/dir~              <- Downloads Kohana to "./my/other/dir/kohana"
+~$ ko install --path=my/other/dir --name=myapp~ <- Downloads Kohana to "./my/other/dir/myapp"
+~$ ko install --mode=755~                       <- Uses mode "755" instead of "777" for new files/dirs
+
+Note: When using --path, if a dir does not exist, it will be created
+Note: When using --path, the permissions on existing dirs will not get overridden (by design)
+
+> git:        Sets up a new git repo, adding the Kohana modules as git submodules
+
+~$ ko git~                               <- Sets up a new repo in "./kohana"
+~$ ko git --name=myapp~                  <- Sets up a new repo in "./myapp"
+~$ ko git --path=other/dir~              <- Sets up a new repo in "./other/dir/kohana"
+~$ ko git --path=other/dir --name=myapp~ <- Sets up a new repo in "./other/dir/myapp"
+~$ ko git --mode=755~                    <- Uses mode "755" instead of "777" for new files/dirs
+~$ ko git --modules=orm,database~        <- Installs only the orm and database modules (the default is all official ones)
+~$ ko git --tag=3.1~                     <- index.php, bootstrap.php and .htaccess are fetched with this tag, submodules default to master branch
+
+Installation based on the official guide: http://kohanaframework.org/3.2/guide/kohana/tutorials/git
+
+> skeleton:   Builds a skeleton of dirs for sharing Kohana between multiple projects
+
+~$ ko skeleton~                              <- Creates the dirs "./{projects,kohana,modules}"
+~$ ko skeleton --name=apps~                  <- Creates the dirs "./{apps,kohana,modules}"
+~$ ko skeleton --path=other/dir~             <- Creates the dirs "./other/dir/{kohana,kohana,modules}"
+~$ ko skeleton --path=other/dir --name=apps~ <- Creates the dirs "./other/dir/{apps,kohana,modules}"
+~$ ko skeleton --mode=755~                   <- Uses mode "755" instead of "777" for new files/dirs
+
+More information @ http://kohanaframework.org/3.2/guide/kohana/tutorials/sharing-kohana
+
+> system:     Downloads the "system" directory from GitHub (may be used in conjunction with skeleton)
+
+~$ ko system~              <- Clones github.com/kohana/core (master branch) into "./system"
+~$ ko system --tag=v3.1.0~ <- Clones github.com/kohana/core and checks out tag "v3.1.0" into "./3.1.0"
+~$ ko system --mode=755~   <- Uses mode "755" instead of "777" for new files/dirs
+
+> modules:    Downloads all the official modules form GitHub (may be used in conjunction with skeleton)
+
+~$ ko modules~                        <- Clones all the official modules into "."
+~$ ko modules --path=modules~         <- Clones all the official modules into "./modules"
+~$ ko modules --modules=orm,database~ <- Clones only the orm and database modules into "."
+~$ ko modules --mode=755~             <- Uses mode "755" instead of "777" for new files/dirs
+
+> fix:        Fixes some shitty defaults
+
+~$ ko fix~  <- Renames example.htaccess to .htaccess, removes install.php and makes cache/logs writable
+
+Important: Make sure you cd into the dir that contains the index.php, or provide a --path to it
+
+
+EOF
+		));
+	}
+
+	/**
+	 * Displays the minimal help screen; contains the list of available commands.
+	 */
+	public function show_help_screen()
+	{
+		exit($this->colorize_output(<<<EOF
+*********************************************
+* Kohana Framework Installer (ko installer) *
+*********************************************
+
+[!] For quick snippets, try "ko --verbose"
+
+** Specify a command to run **
+
+~install~     Installs Kohana by downloading the latest zip file from the official website
+~git~         Sets up a new git repo, adding the Kohana modules as git submodules
+~skeleton~    Builds a skeleton of dirs for sharing Kohana between multiple projects
+~system~      Downloads the "system" directory from GitHub (may be used in conjunction with skeleton)
+~modules~     Downloads all the official modules form GitHub (may be used in conjunction with skeleton)
+~fix~         Fixes some shitty defaults
+
+
+EOF
+		));
+	}
+
+	/**
+	 * Colorizes the output so it's more legible.
+	 *
+	 * @param   string  $output
+	 * @return  string
+	 */
+	public function colorize_output($output)
+	{
+		preg_match_all('/~(.*?)~/', $output, $matches, PREG_SET_ORDER);
+
+		foreach ($matches as $match)
+		{
+			$output = str_replace($match[0], "\033[0;32m".$match[1]."\033[0m", $output);
+		}
+
+		return $output;
+	}
+}
+
+class Installer extends Kohana_Installer
+{
+}
+
+set_time_limit(0);
+
+// First index is the name of this script
+array_shift($argv);
+
+$installer = new Installer($argv);
+
+if (empty($argv) OR $installer->has_option('verbose'))
+{
+	$installer->execute_help();
+}
+else if (method_exists($installer, $method = 'execute_'.strtolower(str_replace('-', '_', $argv[0]))))
+{
+	$installer->check_internet_access();
+	call_user_func(array($installer, $method));
+}
+else if ( ! empty($argv[0]))
+{
+	exit("\"{$argv[0]}\" is not a valid command!\n\n");
+}
