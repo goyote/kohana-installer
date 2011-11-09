@@ -1,6 +1,6 @@
 # Kohana Installer
 
-This cli script automates the redundant steps you need to take everytime you want to install Kohana through either the console by means of a git repo or by going to the official website and downloading the zip file manually.
+The `ko` cli script helps you automate (and thus eliminate) the redundant steps needed to be taken in order to install Kohana successfully through either the console by means of a git repo or by going to the official website and downloading the zip file manually.
 
 ## Installation
 
@@ -15,7 +15,7 @@ Now all users get access to `ko`, login and type `ko` on the command line to see
 
 Open a shell and specify a command to run:
 
-**install**    Installs Kohana by downloading the latest zip file from the official website
+**install**: Installs Kohana by downloading the latest zip file from the official website.
 
     $ ko install                                  <- Downloads Kohana to "./kohana"
     $ ko install --name=myapp                     <- Downloads Kohana to "./myapp"
@@ -23,10 +23,12 @@ Open a shell and specify a command to run:
     $ ko install --path=my/other/dir --name=myapp <- Downloads Kohana to "./my/other/dir/myapp"
     $ ko install --mode=755                       <- Uses mode "755" instead of "777" for new files/dirs
 
-Note: When using --path, if a dir does not exist, it will be created
-Note: When using --path, the permissions on existing dirs will not get overridden (by design)
+*Note*: When using --path, if a dir does not exist, it will be created.
+*Note*: When using --path, the permissions on existing dirs will not get overridden (by design.)
 
-**git**        Sets up a new git repo, adding the Kohana modules as git submodules
+***
+
+**git**: Sets up a new git repo, adding the Kohana modules as git submodules.
 
     $ ko git                               <- Sets up a new repo in "./kohana"
     $ ko git --name=myapp                  <- Sets up a new repo in "./myapp"
@@ -38,7 +40,9 @@ Note: When using --path, the permissions on existing dirs will not get overridde
 
 Installation based on the official guide: http://kohanaframework.org/3.2/guide/kohana/tutorials/git
 
-**skeleton**   Builds a skeleton of dirs for sharing Kohana between multiple projects
+***
+
+**skeleton**: Builds a skeleton of dirs for sharing Kohana between multiple projects.
 
     $ ko skeleton                              <- Creates the dirs "./{projects,kohana,modules}"
     $ ko skeleton --name=apps                  <- Creates the dirs "./{apps,kohana,modules}"
@@ -48,21 +52,27 @@ Installation based on the official guide: http://kohanaframework.org/3.2/guide/k
 
 More information @ http://kohanaframework.org/3.2/guide/kohana/tutorials/sharing-kohana
 
-**system**     Downloads the "system" directory from GitHub (may be used in conjunction with skeleton)
+***
+
+**system**: Downloads the "system" directory from GitHub (may be used in conjunction with skeleton.)
 
     $ ko system              <- Clones github.com/kohana/core (master branch) into "./system"
     $ ko system --tag=v3.1.0 <- Clones github.com/kohana/core and checks out tag "v3.1.0" into "./3.1.0"
     $ ko system --mode=755   <- Uses mode "755" instead of "777" for new files/dirs
 
-**modules**    Downloads all the official modules form GitHub (may be used in conjunction with skeleton)
+***
+
+**modules**: Downloads all the official modules form GitHub (may be used in conjunction with skeleton.)
 
     $ ko modules                        <- Clones all the official modules into "."
     $ ko modules --path=modules         <- Clones all the official modules into "./modules"
     $ ko modules --modules=orm,database <- Clones only the orm and database modules into "."
     $ ko modules --mode=755             <- Uses mode "755" instead of "777" for new files/dirs
 
-**fix**        Fixes some shitty defaults
+***
+
+**fix**: Fixes some shitty defaults.
 
     $ ko fix  <- Renames example.htaccess to .htaccess, removes install.php and makes cache/logs writable
 
-Important: Make sure you cd into the dir that contains the index.php, or provide a --path to it
+*Important*: Make sure you cd into the dir that contains the index.php, or provide a --path to it.
