@@ -79,3 +79,12 @@ More information @ http://kohanaframework.org/3.2/guide/kohana/tutorials/sharing
     $ ko fix  <- Renames example.htaccess to .htaccess, removes install.php and makes cache/logs writable
 
 *Important*: Make sure you cd into the dir that contains the index.php, or provide a --path to it.
+
+***
+
+**config**: Configures the server to run Kohana, mainly by installing the required packages
+
+    $ ko config --distro=centos6                 <- Installs required packages; restarts Apache if it's running
+    $ ko config --distro=centos6 --restart=false <- Installs required packages; does not restart Apache
+
+*CentOS6 installs*: php-mbstring php-mcrypt php-gd php-pdo php-mysql php-process php-xml

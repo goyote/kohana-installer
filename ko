@@ -46,6 +46,23 @@ class Kohana_Installer
 	);
 
 	/**
+	 * PHP extensions needed by Kohana.
+	 *
+	 * @var  array
+	 */
+	protected $packages = array(
+		'centos6' => array(
+			'php-mbstring',
+			'php-mcrypt',
+			'php-gd',
+			'php-pdo',
+			'php-mysql',
+			'php-process',
+			'php-xml',
+		),
+	);
+
+	/**
 	 * Class constructor.
 	 *
 	 * @param  array  $argv
@@ -74,6 +91,11 @@ class Kohana_Installer
 			if (strpos($option, '=') !== FALSE)
 			{
 				list($option, $value) = explode('=', $option);
+
+				if (strtolower($value) === 'false')
+				{
+					$value = FALSE;
+				}
 			}
 			else
 			{
@@ -279,6 +301,64 @@ class Kohana_Installer
 	}
 
 	/**
+	 * Installs the required PHP extensions needed by Kohana.
+	 */
+	public function execute_config()
+	{
+		$distro = strtolower($this->get_option('distro'));
+
+		if ( ! $distro)
+		{
+			exit(sprintf("Please specify a distro, e.g. ko config --distro=centos\n\n"));
+		}
+
+		if ( ! method_exists($this, $method = 'configure_'.$distro))
+		{
+			exit(sprintf("\"%s\" is not yet supported :(\n\n", $distro));
+		}
+
+		call_user_func(array($this, $method));
+	}
+
+	/**
+	 * Configures CentOS6 to run Kohana.
+	 */
+	protected function configure_centos6()
+	{
+		// Install EPEL repository, needed for mcrypt
+		system('rpm -Uvh http://download.fedora.redhat.com/pub/epel/6/i386/epel-release-6-5.noarch.rpm');
+
+		$this->install_extensions($this->packages['centos6']);
+		$this->restart_apache();
+	}
+
+	/**
+	 * Restarts the Apache server.
+	 */
+	protected function restart_apache()
+	{
+		// Determine if apache is running
+		$running = strpos(strtolower(trim(shell_exec('service httpd status'))), 'is running');
+		if ($running AND $this->get_option('restart', TRUE))
+		{
+			system('service httpd restart');
+		}
+	}
+
+	/**
+	 * Installs the passed in extensions.
+	 *
+	 * @param  array  $packages
+	 */
+	protected function install_extensions(array $packages = NULL)
+	{
+		if ($packages !== NULL)
+		{
+			system(sprintf('yum -y install %s', implode(' ', $this->packages['centos6'])));
+		}
+	}
+
+	/**
 	 * Creates a skeleton of dirs that allows kohana to be shared easily among projects.
 	 *
 	 * @link  http://kohanaframework.org/3.2/guide/kohana/tutorials/sharing-kohana
@@ -356,6 +436,9 @@ class Kohana_Installer
 		}
 	}
 
+	/**
+	 * Proxy method.
+	 */
 	public function execute_module()
 	{
 		$this->execute_modules();
@@ -471,6 +554,8 @@ class Kohana_Installer
 	 */
 	public function show_verbose_help_screen()
 	{
+		$centos6_packages = implode(' ', $this->packages['centos6']);
+
 		exit($this->colorize_output(<<<EOF
 *********************************************
 * Kohana Framework Installer (ko installer) *
@@ -530,6 +615,13 @@ More information @ http://kohanaframework.org/3.2/guide/kohana/tutorials/sharing
 
 Important: Make sure you cd into the dir that contains the index.php, or provide a --path to it
 
+> config:     Configures the server to run Kohana, mainly by installing the required packages
+
+~$ ko config --distro=centos6~                 <- Installs required packages; restarts Apache if it's running
+~$ ko config --distro=centos6 --restart=false~ <- Installs required packages; does not restart Apache
+
+CentOS6 installs: $centos6_packages
+
 
 EOF
 		));
@@ -555,6 +647,7 @@ EOF
 ~system~      Downloads the "system" directory from GitHub (may be used in conjunction with skeleton)
 ~modules~     Downloads all the official modules form GitHub (may be used in conjunction with skeleton)
 ~fix~         Fixes some shitty defaults
+~config~      Configures the server to run Kohana, mainly by installing the required packages
 
 
 EOF
