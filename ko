@@ -59,6 +59,8 @@ class Kohana_Installer
 			'php-mysql',
 			'php-process',
 			'php-xml',
+			'php-pear',
+			'curl-devel',
 		),
 	);
 
@@ -314,7 +316,7 @@ class Kohana_Installer
 
 		if ( ! method_exists($this, $method = 'configure_'.$distro))
 		{
-			exit(sprintf("\"%s\" is not yet supported :(\n\n", $distro));
+			exit(sprintf("\"%s\" is not yet supported :( Please open a ticket on GitHub\n\n", $distro));
 		}
 
 		call_user_func(array($this, $method));
@@ -329,7 +331,16 @@ class Kohana_Installer
 		system('rpm -Uvh http://download.fedora.redhat.com/pub/epel/6/i386/epel-release-6-5.noarch.rpm');
 
 		$this->install_extensions($this->packages['centos6']);
+
 		$this->restart_apache();
+
+		if (strpos(strtolower(trim(shell_exec('pecl list | grep pecl_http'))), 'stable') === FALSE)
+		{
+			if ( ! $this->has_option('enable-pecl-http'))
+			{
+				exit("Use \"pecl install pecl_http\" to install PECL HTTP\n\n");
+			}
+		}
 	}
 
 	/**
