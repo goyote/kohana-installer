@@ -8,7 +8,7 @@ http://youtu.be/PgdQR_uPm0s?hd=1
 
 For global access by all users, move the `ko` file into `/usr/bin`.
 
-     wget https://raw.github.com/goyote/kohana-installer/master/ko -P /usr/bin/
+     wget https://raw.github.com/goyote/kohana-installer/master/ko -O /usr/bin/ko
      chmod 0755 /usr/bin/ko
 
 Now all users get access to `ko`, login and type `ko` on the command line to see the help screen or type `ko install` to see something happen.
