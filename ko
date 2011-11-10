@@ -309,7 +309,7 @@ class Kohana_Installer
 
 		if ( ! $distro)
 		{
-			exit(sprintf("Please specify a distro, e.g. ko config --distro=centos\n\n"));
+			exit(sprintf("Please specify a distro, e.g. ko config --distro=centos6\n\n"));
 		}
 
 		if ( ! method_exists($this, $method = 'configure_'.$distro))
