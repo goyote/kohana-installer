@@ -63,7 +63,7 @@ More information @ http://kohanaframework.org/3.2/guide/kohana/tutorials/sharing
 
 ***
 
-**modules**: Downloads all the official modules form GitHub (may be used in conjunction with skeleton.)
+**modules**: Downloads all the official modules from GitHub (may be used in conjunction with skeleton.)
 
     $ ko modules                        <- Clones all the official modules into "."
     $ ko modules --path=modules         <- Clones all the official modules into "./modules"
