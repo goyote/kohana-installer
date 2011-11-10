@@ -2,7 +2,7 @@
 
 The `ko` cli script helps you automate (and thus eliminate) the redundant steps that you need to take in order to install Kohana successfully through either the console by means of a git repo or by going to the official website and downloading the zip file manually.
 
-http://www.youtube.com/watch?v=PgdQR_uPm0s
+http://youtu.be/PgdQR_uPm0s?hd=1
 
 ## Installation
 
