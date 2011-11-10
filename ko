@@ -336,10 +336,7 @@ class Kohana_Installer
 
 		if (strpos(strtolower(trim(shell_exec('pecl list | grep pecl_http'))), 'stable') === FALSE)
 		{
-			if ( ! $this->has_option('enable-pecl-http'))
-			{
-				exit("Use \"pecl install pecl_http\" to install PECL HTTP\n\n");
-			}
+			exit("Use \"pecl install pecl_http\" to install PECL HTTP\n\n");
 		}
 	}
 
